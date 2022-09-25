@@ -1,0 +1,6 @@
+0 := Pair True (Pair False \x.x)
+succ := \x.Pair False x
+pred := snd
+-- pred := \x.x False
+isZero := fst
+-- isZero := \x.x True

@@ -1,0 +1,10 @@
+
+-- -1 := \x.\y.y (\z.z)
+0 := \x.\y.x
+isZero := \z.z True (\x.False)
+succ := \z.\x.\y.y z
+-- pred := \z.z 0 (\x.x)
+
+pred := \z.z 0 (\x.x)
+
+

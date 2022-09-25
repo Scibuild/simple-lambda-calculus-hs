@@ -1,0 +1,152 @@
+Y := \f. (\x.f (x x)) (\x. f (x x))
+
+True := \x.\y.x
+False := \x.\y.y
+
+not := \x.x False True
+or := \a.\b.a True b
+and := \a.\b.a b False
+
+Pair := \A.\B.\x.x A B
+fst := \p.p True
+snd := \p.p False
+
+-- using barendregt numbers
+:l barandregt-prelude
+-- :l scott-prelude
+
+isOne := \x.and (not $ isZero x) (isZero $ pred x)
+
+ifelse := \b.\l.\r.b l r
+
+1 := succ 0
+2 := succ 1
+3 := succ 2
+4 := succ 3
+5 := succ 4
+6 := succ 5
+7 := succ 6
+8 := succ 7
+9 := succ 8
+10 := succ 9
+11 := succ 10
+12 := succ 11
+13 := succ 12
+14 := succ 13
+15 := succ 14
+16 := succ 15
+17 := succ 16
+18 := succ 17
+19 := succ 18
+20 := succ 19
+21 := succ 20
+22 := succ 21
+23 := succ 22
+24 := succ 23
+25 := succ 24
+26 := succ 25
+
+
+
+== := Y \e.\x.\y.(isZero x) (isZero y) ((isZero y) False (e (pred x) (pred y)))
+< := Y \e.\x.\y.(isZero x) (not (isZero y)) ((isZero y) False (e (pred x) (pred y)))
+--                          ^^^
+
+>= := \a.\b.not (< a b)
+<= := \a.\b.>= b a
+> := \a.\b.< b a
+!= := \a.\b.not (== a b)
+
+compose := \g.\f.\x.g (f x)
+
+toChurch := Y \c.\n.\f.\x.(isZero n) x (f (c (pred n) f x))
+tc := toChurch
+
+-- if m == 0 => n
+-- if n == 0 => m
+-- else => (1 + (m + (n - 1)))
++ := Y \plus.\m.\n.(isZero m) n ((isZero n) m (succ (plus m (pred n))))
+-- simple optimisation
+* := \m.\n.(< m n) (*' m n) (*' n m)
+*' := Y \times.\m.\n.isOne m n (isOne n m (isZero m 0 (isZero n 0 (+ n (times (pred m) n)))))
+- := Y \minus.\m.\n.(isZero m) 0 ((isZero n) m (minus (pred m) (pred n)))
+/ := Y \divide.\m.\n.(< m n) 0 ((isZero n) __ERROR_DIV_BY_ZERO__ (succ (divide (- m n) n)))
+divide2 := Y \divide.\m.\n.(isZero m) 0 $ (< m n) 1 ((isZero n) __ERROR_DIV_BY_ZERO__ (succ (divide (- m n) n)))
+mod := Y \modulo.\m.\n.(< m n) m ((isZero n) __ERROR_DIV_BY_ZERO__ (modulo (- m n) n))
+
+100 := * 10 10
+1000 := * 100 10
+
+Some := \x.Pair True x
+None := Pair False False
+none? := compose not fst
+some? := fst
+unwrap := snd
+
+cons := \x.\y.Some (Pair x y)
+: := cons
+head := compose fst unwrap
+tail := compose snd unwrap
+
+
+-- when None is the empty list, big lisp moment
+empty := None
+[] := empty
+1list := \x.(cons x None)
+2list := \x.\y.(cons x (cons y None))
+3list := \x.\y.\z.(cons x (cons y (cons z None)))
+4list := \x.\y.\z.\w.cons x $ cons y $ cons z $ cons w $ None
+
+empty? := none?
+
+nth := \n.\l.head (toChurch n tail l)
+len := Y \lf.\l.(empty? l) 0 (succ (lf (tail l)))
+append := Y \af.\e.\l.(empty? l) (1list e) (cons (head l) (af e (tail l)))
+
+reverse := Y \r.\l.(empty? l) empty (append (head l) (reverse (tail l)))
+
+list' := Y \l.\c.\n.(isZero n) (reverse c) ((\l.\n.\c.\x.l (cons x c) (pred n)) l n c)
+list := list' None
+
+foldr := Y \foldr.\f.\acc.\l.(empty? l) acc (foldr f (f (head l) acc) (tail l))
+sum := foldr + 0
+prod := foldr * 1
+
+map := Y \map.\f.\l.(empty? l) empty (: (f $ head l) $ map f $ tail l)
+filter := Y \filter.\f.\l.(empty? l) empty $ (f $ head l) (: (head l) $ filter f $ tail l) (filter f $ tail l)
+
+zipWith := Y \zipWith.\f.\as.\bs.empty? as empty $ empty? bs empty $ : (f (head as) (head bs)) $ zipWith f (tail as) (tail bs)
+
+toString := Y \toString.\s.empty? s __S_nil $ __S_cons ((tc $ head s) __S_inc __S_zero) $ toString $ tail s
+
+-- Becase ascii encoding is wildly inefficient if you only use big characters we have to use our own encoding system: (newline is after numbers)
+-- >>>> abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
+
+-- 0           5     10    15    20    25    30    35    40    45    50    55    
+-- <SPACE>abcd efghi jklmn opqrs tuvwx yzABC DEFGH IJKLM NOPQR STUVW XYZ01 23456 
+-- 60     65    70    75    80    85    90
+-- 789\n! "#$%& '()*+ ,-./: ;<=>? @[\]^ _`{|} ~
+
+-- 53
+'0' := + 10 $ + 20 23
+
+showInt := compose reverse $ Y \showInt.\n.(< n 10) (1list $ + '0' n) (: (+ '0' $ mod n 10) (showInt $ / n 10))
+
+
+join := foldr append
+concat := foldr (\x.\acc.join acc x) empty
+intercalate := \inter.\list.foldr (\x.\acc.(empty? acc) x (join acc $ join inter x)) empty list
+
+showList := \showItem.\list.: (+ 1 (* 10 7)) $ append (* 8 9) $ intercalate (2list (* 25 3) 0) $ map showItem $ list
+
+SL_true := 4list (+ 26 20) 18 21 5
+SL_false := list 5 (+ 26 6) 1 12 19 5
+
+showBool := \b.b SL_true SL_false
+showPair := \showLeft.\showRight.\p.join (1list $ * 9 9) $ join (showLeft $ fst p) $ join (2list (* 25 3) 0) $ join (showRight $ snd p) (1list $ - (* 12 7) 1)
+
+-- > :ps toString $ showList (showPair showInt showInt) $ zipWith Pair (list 5 1 2 3 6 8) (3list 6 5 4)
+-- (<1, 6>, <2, 5>, <3, 4>)
+
+max := \a.\b.(< a b) b a
+min := \a.\b.(< a b) a b
